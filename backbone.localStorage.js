@@ -1,8 +1,8 @@
 /**
- * Backbone localStorage Adapter
+ * Backbone asyncStorage Adapter
  * Version 1.1.4
  *
- * https://github.com/jeromegn/Backbone.localStorage
+ * https://github.com/instaedu/Backbone.localStorage
  */
 (function (root, factory) {
     if (typeof exports === 'object') {
@@ -40,17 +40,27 @@
     // reference to the actual asynchronous storage object you're using.
     Backbone.AsyncStorage = function(name, storage) {
         this.name = name;
-        this.storage = storage;
-        this.records = [];
+        this.storage = storage || window.asyncStorage;
+        this.records = null;
+        this.call_queue = [];
 
         var self = this;
         this.asyncStorage().getItem(this.name, function(store) {
-            console.log("Found records ", store);
             self.records = (store && store.split(",")) || [];
+            _.each(self.call_queue, function(args) {
+                Backbone.AsyncStorage.sync.apply(self, args);
+            });
         });
     };
 
     _.extend(Backbone.AsyncStorage.prototype, {
+        isReady: function() {
+            return this.records !== null;
+        },
+
+        queue: function(method, model, options) {
+            this.call_queue.push([method, model, options]);
+        },
 
         // Save the current state of the **Store** to *localStorage*.
         save: function(callback) {
@@ -169,7 +179,13 @@
     // window.Store.sync and Backbone.localSync is deprecated, use Backbone.LocalStorage.sync instead
     Backbone.AsyncStorage.sync = function(method, model, options) {
         var store = model.asyncStorage || model.collection.asyncStorage,
-            syncDfd = Backbone.$ && Backbone.$.Deferred && Backbone.$.Deferred(); //If $ is having Deferred - use it.
+            syncDfd = options.syncDfd || (Backbone.$ && Backbone.$.Deferred && Backbone.$.Deferred()); //If $ is having Deferred - use it.
+
+        if (!store.isReady()) {
+            options.syncDfd = syncDfd;
+            store.queue(method, model, options);
+            return syncDfd && syncDfd.promise();
+        }
 
         var onComplete = function(resp) {
             // add compatibility with $.ajax
