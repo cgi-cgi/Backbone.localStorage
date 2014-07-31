@@ -97,7 +97,6 @@
                     self.find(model, callback);
                 }
             });
-
         },
 
         // Retrieve a model from `this.data` by id.
@@ -236,7 +235,15 @@
                     store.create(model, onResponse);
                     break;
                 case "update":
-                    store.update(model, onResponse);
+                    if (model.hasChanged('id')) {
+                        var clone = new model.constructor();
+                        clone.id = model.previous('id');
+                        store.destroy(clone, function() {
+                            store.update(model, onResponse);
+                        });
+                    } else {
+                        store.update(model, onResponse);
+                    }
                     break;
                 case "delete":
                     store.destroy(model, onResponse);
@@ -249,7 +256,9 @@
         return syncDfd && syncDfd.promise();
     };
 
-    Backbone.ajaxSync = Backbone.sync;
+    if (!Backbone.ajaxSync) {
+        Backbone.ajaxSync = Backbone.sync;
+    }
 
     Backbone.getSyncMethod = function(model) {
         if (model.asyncStorage || (model.collection && model.collection.asyncStorage)) {
