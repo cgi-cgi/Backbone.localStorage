@@ -237,7 +237,7 @@
                 case "update":
                     if (model.hasChanged('id')) {
                         var clone = new model.constructor();
-                        clone.id = model.previous('id');
+                        clone.set(clone.idAttribute, model.previous('id'));
                         store.destroy(clone, function() {
                             store.update(model, onResponse);
                         });
